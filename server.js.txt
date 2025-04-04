@@ -1,0 +1,53 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+
+// Initialize Express app
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// Serve static files
+app.use(express.static('public'));
+
+// Store participants data
+let participants = [];
+
+// Handle socket connections
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    // Send current participants list to the newly connected client
+    socket.emit('updateParticipants', participants);
+
+    // Listen for new participant addition
+    socket.on('addParticipant', (newParticipant) => {
+        participants.push(newParticipant);
+        io.emit('updateParticipants', participants); // Broadcast to all clients
+    });
+
+    // Listen for role assignment
+    socket.on('assignRoles', (roles) => {
+        participants.forEach((participant, index) => {
+            participant.role = roles[index];
+        });
+        io.emit('updateParticipants', participants); // Broadcast to all clients
+    });
+
+    // Listen for participant deletion
+    socket.on('deleteParticipant', (id) => {
+        participants = participants.filter(participant => participant.id !== id);
+        io.emit('updateParticipants', participants); // Broadcast to all clients
+    });
+
+    // Handle disconnect
+    socket.on('disconnect', () => {
+        console.log('A user disconnected:', socket.id);
+    });
+});
+
+// Start the server
+const PORT = 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
